@@ -1,690 +1,540 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
+  ArrowRight,
   Building2,
-  Phone,
-  MessageSquare,
-  MapPin,
-  Search,
-  Home,
-  Lock,
-  X,
-  Plus,
-  Trash2,
-  Store,
-  ShieldCheck,
-  GraduationCap,
+  Camera,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
+  Clock3,
+  Home,
+  Lock,
+  LogOut,
+  MapPin,
   Menu,
-  Save,
-  Upload,
-  Download,
-  RefreshCw,
-  Edit3,
-  ImagePlus,
-  Copy,
-  AlertTriangle,
+  MessageCircle,
+  Phone,
+  Plus,
+  School,
+  Search,
+  Send,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Store,
+  Trash2,
+  Wallet,
+  X,
 } from 'lucide-react';
+import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 
-const OFFICE = {
-  name: '칸공인중개사사무소',
-  owner: '대표공인중개사 정점식',
-  phone: '010-5323-3883',
-  tel: '01053233883',
-  subPhone: '054-474-0367',
-  address: '경상북도 구미시 인의동 991-4번지 4층',
-  regNo: '제47190-2023-00014',
-  blog: 'https://blog.naver.com/atm750',
-  mapSearch: 'https://map.naver.com/p/search/칸공인중개사사무소%20구미',
-};
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || '3883';
+const LOCAL_STORAGE_KEY = 'kan-homepage-listings-v1';
 
-const EMPTY_FORM = {
-  id: '',
-  sort_order: 0,
-  badge: '신규 매물',
-  title: '',
-  short_title: '',
-  location: '',
-  landmark: '',
-  property_type: '다가구주택 내 원룸',
-  deal_type: '월세',
-  deposit: '',
-  rent: '',
-  management: '관리비 포함',
-  area: '약 30㎡',
-  floor: '',
-  direction: '',
-  parking: '가능',
-  move_in: '즉시입주 협의',
-  approval_date: '계약 전 최종 확인',
-  rooms: '방 1 / 욕실 1',
-  options: '계약 전 최종 확인',
-  summary: '',
-  description: '',
-  image_count: 15,
-  photos: [],
-  photo_memo: [],
-  facilities: ['편의점', '식당가', '버스정류장'],
-  safety: ['중개사 직접 확인', '실사진', '계약 전 권리 확인'],
-  education: ['생활권 확인', '출퇴근 동선', '자취 수요'],
-};
+const AREAS = ['전체', '인의동', '진평동', '구평동', '옥계동', '석적', '북삼'];
+const TYPES = ['전체', '원룸 월세', '미니투룸 월세', '투룸 월세', '다가구 매매', '상가 임대'];
 
-function normalizeArray(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string') return value.split('\n').map((v) => v.trim()).filter(Boolean);
-  return [];
+const sampleListings = [
+  {
+    id: 'sample-1',
+    title: '구미 인의동 원룸 월세',
+    headline: '200/30 관리비포함 · 리모델링 풀옵션',
+    price: '보증금 200만원 / 월세 30만원',
+    deposit: 200,
+    monthly: 30,
+    manageFee: '관리비 포함',
+    area: '인의동',
+    location: '경북 구미시 인의동 로데오거리 생활권',
+    summary: '리모델링 풀옵션, 인동 로데오거리 인근, 공단 출퇴근 동선 보기 좋은 원룸입니다.',
+    type: '원룸 월세',
+    status: '즉시입주 협의',
+    tags: ['관리비포함', '풀옵션', '직장인추천', '공단출퇴근'],
+    photos: [
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1556912173-3bb406ef7e77?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?q=80&w=1200&auto=format&fit=crop',
+    ],
+    facilities: ['편의점 도보권', '인동 상권 인접', '버스 이용 편리', '식당·카페 생활권'],
+    safety: ['공동현관', 'CCTV', '밝은 골목 생활권'],
+    education: ['경운대 통학권', '인의초 생활권', '학원가 접근 가능'],
+  },
+  {
+    id: 'sample-2',
+    title: '구미 진평동 미니투룸 월세',
+    headline: '500/45 관리비포함 · 강동병원 인근',
+    price: '보증금 500만원 / 월세 45만원',
+    deposit: 500,
+    monthly: 45,
+    manageFee: '관리비 포함',
+    area: '진평동',
+    location: '경북 구미시 진평동 강동병원 인근',
+    summary: '방 분리형 구조, 국가산단 출퇴근 동선, 깔끔한 내부 컨디션의 미니투룸입니다.',
+    type: '미니투룸 월세',
+    status: '입주일 협의',
+    tags: ['분리형', '관리비포함', '강동병원', '국가산단'],
+    photos: [
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1560448075-bb485b067938?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1560184897-ae75f418493e?q=80&w=1200&auto=format&fit=crop',
+    ],
+    facilities: ['강동병원 인근', '마트 접근 좋음', '먹자골목 생활권', '버스정류장 인근'],
+    safety: ['주차공간', 'CCTV', '현관 보안'],
+    education: ['초중고 생활권', '학원가 차량 이동권'],
+  },
+  {
+    id: 'sample-3',
+    title: '구미 옥계동 원룸 월세',
+    headline: '200/30 관리비포함 · 4공단 출퇴근 추천',
+    price: '보증금 200만원 / 월세 30만원',
+    deposit: 200,
+    monthly: 30,
+    manageFee: '관리비 포함',
+    area: '옥계동',
+    location: '경북 구미시 옥계동 4공단 생활권',
+    summary: '월 부담을 줄이기 좋은 조건, 공단 출퇴근과 옥계 생활권을 함께 보기 좋은 원룸입니다.',
+    type: '원룸 월세',
+    status: '즉시입주 가능',
+    tags: ['월세30만원대', '관리비포함', '4공단', '가성비'],
+    photos: [
+      'https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1560185127-6ed189bf02f4?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1560440021-33f9b867899d?q=80&w=1200&auto=format&fit=crop',
+    ],
+    facilities: ['옥계 상권 차량권', '공단 출퇴근 동선', '마트·편의점 접근'],
+    safety: ['주차 편리', 'CCTV 확인', '주거 밀집 생활권'],
+    education: ['금오공대 차량권', '옥계 학원가 접근'],
+  },
+];
+
+function cn(...classes) {
+  return classes.filter(Boolean).join(' ');
 }
 
-function propertyToForm(property) {
+function toDbListing(item) {
   return {
-    ...EMPTY_FORM,
-    ...property,
-    image_count: Number(property.image_count || 15),
-    photos: Array.isArray(property.photos) ? property.photos : [],
-    photo_memo: Array.isArray(property.photo_memo) ? property.photo_memo : [],
-    facilities: normalizeArray(property.facilities),
-    safety: normalizeArray(property.safety),
-    education: normalizeArray(property.education),
+    title: item.title,
+    headline: item.headline,
+    price: item.price,
+    deposit: Number(item.deposit || 0),
+    monthly: Number(item.monthly || 0),
+    manage_fee: item.manageFee,
+    area: item.area,
+    location: item.location,
+    summary: item.summary,
+    type: item.type,
+    status: item.status,
+    tags: item.tags || [],
+    photos: item.photos || [],
+    facilities: item.facilities || [],
+    safety: item.safety || [],
+    education: item.education || [],
+    sort_order: item.sortOrder || 0,
   };
 }
 
-function formToPayload(form) {
+function fromDbListing(item) {
   return {
-    ...form,
-    sort_order: Number(form.sort_order || 0),
-    image_count: Math.max(1, Math.min(40, Number(form.image_count || 15))),
-    short_title: form.short_title || form.title,
-    facilities: normalizeArray(form.facilities),
-    safety: normalizeArray(form.safety),
-    education: normalizeArray(form.education),
-    photo_memo: normalizeArray(form.photo_memo),
-    photos: Array.isArray(form.photos) ? form.photos : [],
+    id: item.id,
+    title: item.title || '',
+    headline: item.headline || '',
+    price: item.price || '',
+    deposit: item.deposit || 0,
+    monthly: item.monthly || 0,
+    manageFee: item.manage_fee || '관리비 포함',
+    area: item.area || '',
+    location: item.location || '',
+    summary: item.summary || '',
+    type: item.type || '',
+    status: item.status || '',
+    tags: item.tags || [],
+    photos: item.photos || [],
+    facilities: item.facilities || [],
+    safety: item.safety || [],
+    education: item.education || [],
+    sortOrder: item.sort_order || 0,
   };
 }
 
-async function apiFetch(path, options = {}) {
-  const response = await fetch(path, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.adminPassword ? { 'x-admin-password': options.adminPassword } : {}),
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
-
-  const payload = await response.json().catch(() => ({ ok: false, error: '응답을 읽을 수 없습니다.' }));
-  if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || '요청 처리 중 오류가 발생했습니다.');
-  }
-  return payload;
+function parseLines(value, fallback = []) {
+  const lines = String(value || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length ? lines : fallback;
 }
 
-async function resizeImageToDataUrl(file, maxSize = 1500, quality = 0.75) {
-  const dataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-  const image = await new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-
-  const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(image.width * scale);
-  canvas.height = Math.round(image.height * scale);
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', quality);
-}
-
-function getPhotoCaption(property, index) {
-  const photo = property.photos?.[index];
-  if (photo?.caption) return photo.caption;
-  return property.photo_memo?.[index] || `${property.title} 사진 ${index + 1}`;
-}
-
-function Header({ onGoHome, onOpenRequest, onOpenAdmin }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const navItems = [
-    { label: '매물보기', href: '#properties' },
-    { label: '전화상담', href: `tel:${OFFICE.tel}` },
-    { label: '블로그', href: OFFICE.blog, external: true },
-    { label: '지도', href: OFFICE.mapSearch, external: true },
-  ];
-
+function InfoChip({ children, tone = 'light' }) {
   return (
-    <header className="header">
-      <div className="header-inner">
-        <button onClick={onGoHome} className="logo-btn">
-          <span className="logo-mark"><Building2 /></span>
-          <span>
-            <strong>칸공인중개사</strong>
-            <small>구미 원룸 · 투룸 · 수익형부동산</small>
-          </span>
-        </button>
-
-        <nav className="nav">
-          {navItems.map((item) => (
-            <a key={item.label} href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined}>
-              {item.label}
-            </a>
-          ))}
-          <button className="nav-primary" onClick={onOpenRequest}>매물의뢰하기</button>
-          <button onClick={onOpenAdmin}>관리자</button>
-        </nav>
-
-        <button className="menu-btn" onClick={() => setMobileOpen((v) => !v)}><Menu /></button>
-      </div>
-
-      {mobileOpen && (
-        <div className="mobile-nav">
-          {navItems.map((item) => (
-            <a key={item.label} href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noreferrer' : undefined}>
-              {item.label}
-            </a>
-          ))}
-          <button onClick={onOpenRequest}>매물의뢰하기</button>
-          <button onClick={onOpenAdmin}>관리자</button>
-        </div>
-      )}
-    </header>
+    <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold shadow-sm', tone === 'dark' ? 'bg-white/10 text-white ring-1 ring-white/20' : 'bg-white text-slate-700 ring-1 ring-slate-200')}>
+      {children}
+    </span>
   );
 }
 
-function Hero({ onOpenRequest }) {
+function SectionToggle({ icon: Icon, title, items }) {
+  const [open, setOpen] = useState(false);
   return (
-    <section className="hero">
-      <div className="hero-grid">
-        <div>
-          <div className="badge">구미 인동 · 인의동 · 진평동 · 옥계동 매물 상담</div>
-          <h1>구미 원룸·투룸 찾을 때,<span>사진과 조건을 먼저 확인하세요.</span></h1>
-          <p>칸공인중개사는 실사진, 실제 조건, 생활권, 출퇴근 동선, 관리비 포함 여부를 기준으로 구미 원룸 월세·투룸 월세·수익형부동산 매물을 안내합니다.</p>
-          <div className="hero-actions">
-            <a className="btn btn-yellow" href={`tel:${OFFICE.tel}`}><Phone /> 전화상담 {OFFICE.phone}</a>
-            <a className="btn btn-ghost" href={`sms:${OFFICE.tel}`}><MessageSquare /> 문자상담</a>
-            <button className="btn btn-outline" onClick={onOpenRequest}><Plus /> 매물의뢰하기</button>
-          </div>
-          <div className="hero-stats">
-            <div><strong>실사진</strong><span>직접 확인 매물</span></div>
-            <div><strong>관리비</strong><span>포함 여부 안내</span></div>
-            <div><strong>출퇴근</strong><span>국가산단 동선</span></div>
-          </div>
-        </div>
-        <div className="hero-card">
-          <div className="card-top">
-            <div><small>오늘의 추천</small><strong>구미 원룸 월세</strong></div>
-            <span>상담 가능</span>
-          </div>
-          <div className="hero-photo">
-            <b>대표 이미지 영역</b>
-            <div><strong>100/18</strong><span>인의동 · 관리비 포함 · 즉시입주 협의</span></div>
-          </div>
-          <div className="mini-grid"><span>사진등록</span><span>지도</span><span>시설정보</span></div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SearchBar({ query, setQuery, category, setCategory }) {
-  return (
-    <div className="search-wrap">
-      <div className="search-box">
-        <label className="search-field"><Search /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="지역, 원룸, 투룸, 가격으로 검색" /></label>
-        <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="전체">전체 매물</option>
-          <option value="원룸">원룸</option>
-          <option value="투룸">투룸</option>
-          <option value="월세">월세</option>
-        </select>
-      </div>
-    </div>
-  );
-}
-
-function PropertyCard({ property, onSelect }) {
-  const photoUrl = property.photos?.[0]?.url;
-  return (
-    <article className="property-card">
-      <button onClick={() => onSelect(property)}>
-        <div className="card-image" style={photoUrl ? { backgroundImage: `url(${photoUrl})` } : undefined}>
-          <span className="card-badge">{property.badge || '추천'}</span>
-          {!photoUrl && <span className="empty-photo">KAN</span>}
-          <div className="card-title-box">
-            <small>{property.location}</small>
-            <strong>{property.short_title || property.title}</strong>
-          </div>
-        </div>
-        <div className="card-body">
-          <div className="chips"><span>보증금 {property.deposit}</span><span>월세 {property.rent}</span><span>{property.management}</span></div>
-          <h3>{property.title}</h3>
-          <p>{property.summary}</p>
-          <div className="card-meta"><MapPin /> {property.landmark}</div>
-        </div>
+    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between px-5 py-4 text-left">
+        <span className="flex items-center gap-2 text-sm font-black text-slate-900"><Icon size={18} className="text-blue-600" /> {title}</span>
+        {open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
       </button>
-    </article>
-  );
-}
-
-function PropertyList({ properties, onSelect, loading, error }) {
-  return (
-    <section id="properties" className="section">
-      <div className="section-head">
-        <div><span>KAN REAL ESTATE</span><h2>추천 매물</h2></div>
-        <p>카드를 누르면 상세 사진과 조건을 볼 수 있습니다.</p>
-      </div>
-      {loading && <div className="notice">매물을 불러오는 중입니다.</div>}
-      {error && <div className="notice error"><AlertTriangle /> {error}</div>}
-      {!loading && properties.length === 0 && <div className="notice">등록된 매물이 없습니다. 관리자에서 새 매물을 등록하세요.</div>}
-      <div className="property-grid">
-        {properties.map((property) => <PropertyCard key={property.id} property={property} onSelect={onSelect} />)}
-      </div>
-    </section>
-  );
-}
-
-function InfoRow({ label, value }) {
-  return <div className="info-row"><strong>{label}</strong><span>{value || '계약 전 확인'}</span></div>;
-}
-
-function FoldSection({ title, icon: Icon, items, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="fold">
-      <button onClick={() => setOpen((v) => !v)}><span><Icon /> {title}</span>{open ? <ChevronUp /> : <ChevronDown />}</button>
-      {open && <div className="fold-body">{(items || []).map((item) => <span key={item}>{item}</span>)}</div>}
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <div className="border-t border-slate-100 px-5 py-4">
+              <ul className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+                {items.map((item, idx) => <li key={idx} className="rounded-2xl bg-slate-50 px-4 py-3 font-semibold">• {item}</li>)}
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function PropertyDetail({ property, onBack, onOpenRequest }) {
-  const count = Math.max(Number(property.image_count || 15), property.photos?.length || 0, property.photo_memo?.length || 0, 1);
-  const slots = Array.from({ length: count });
-
+function LeadModal({ mode, listing, onClose }) {
+  const [sent, setSent] = useState(false);
+  const title = mode === 'request' ? '매물의뢰하기' : '매물상담신청';
   return (
-    <main className="detail-page">
-      <section className="detail-hero">
-        <div className="detail-hero-inner">
-          <button onClick={onBack} className="back-btn"><Home /> 매물 목록으로</button>
-          <div className="detail-grid">
-            <div>
-              <span className="badge solid">{property.badge}</span>
-              <h1>{property.title}</h1>
-              <p>{property.description}</p>
-              <div className="hero-actions"><a className="btn btn-yellow" href={`tel:${OFFICE.tel}`}><Phone /> 전화상담</a><a className="btn btn-ghost" href={`sms:${OFFICE.tel}`}><MessageSquare /> 문자상담</a><button className="btn btn-outline" onClick={onOpenRequest}><Plus /> 매물의뢰</button></div>
-            </div>
-            <div className="price-panel"><div><small>보증금</small><strong>{property.deposit}</strong></div><div><small>월세</small><strong>{property.rent}</strong></div><div><small>관리비</small><strong>{property.management}</strong></div><div><small>입주</small><strong>{property.move_in}</strong></div></div>
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/60 px-4 backdrop-blur-sm">
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-black text-blue-600">KAN REAL ESTATE</p>
+            <h2 className="text-2xl font-black text-slate-950">{title}</h2>
+            {listing && <p className="mt-1 text-sm font-semibold text-slate-500">{listing.title} · {listing.headline}</p>}
           </div>
+          <button onClick={onClose} className="rounded-full bg-slate-100 p-2 hover:bg-slate-200"><X size={20} /></button>
         </div>
-      </section>
-
-      <section className="detail-content">
-        <aside>
-          <div className="panel"><h2>매물 기본정보</h2><InfoRow label="소재지" value={property.location} /><InfoRow label="매물종류" value={property.property_type} /><InfoRow label="거래형태" value={property.deal_type} /><InfoRow label="면적" value={property.area} /><InfoRow label="층수" value={property.floor} /><InfoRow label="방/욕실" value={property.rooms} /><InfoRow label="방향" value={property.direction} /><InfoRow label="주차" value={property.parking} /><InfoRow label="사용승인일" value={property.approval_date} /><InfoRow label="옵션" value={property.options} /></div>
-          <div className="panel"><h2>지도 안내</h2><a className="map-link" href={OFFICE.mapSearch} target="_blank" rel="noreferrer">네이버 지도에서 칸공인중개사 보기 <ExternalLink /></a><div className="map-placeholder"><MapPin /><strong>매물 생활권 지도 / 사무소 위치 지도</strong><span>실제 운영 시 지도 이미지를 사진 슬롯에 넣거나, 네이버 지도 링크를 함께 사용하세요.</span></div></div>
-          <FoldSection title="편의시설" icon={Store} items={property.facilities} defaultOpen />
-          <FoldSection title="안전시설·신뢰정보" icon={ShieldCheck} items={property.safety} />
-          <FoldSection title="교육·생활수요" icon={GraduationCap} items={property.education} />
-        </aside>
-        <div className="photos-column">
-          <div className="panel"><h2>매물 사진 {count}장</h2><p>사진은 관리자에서 매물별로 업로드할 수 있습니다.</p></div>
-          {slots.map((_, index) => {
-            const photo = property.photos?.[index];
-            return (
-              <div className="photo-card" key={index}>
-                <div className="photo-frame" style={photo?.url ? { backgroundImage: `url(${photo.url})` } : undefined}>
-                  <span>사진 {index + 1}</span>
-                  {!photo?.url && <div className="photo-empty"><strong>KAN</strong><small>실제 매물 사진 영역</small></div>}
-                  <b>칸공인중개사 {OFFICE.phone}</b>
-                </div>
-                <p>{getPhotoCaption(property, index)}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </main>
+        {sent ? (
+          <div className="rounded-3xl bg-blue-50 p-6 text-center">
+            <CheckCircle2 className="mx-auto text-blue-600" size={44} />
+            <p className="mt-3 text-xl font-black text-slate-950">접수되었습니다</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">현재는 화면 예시입니다. 실제 상담 접수 저장은 다음 단계에서 DB 테이블을 추가로 연결하면 됩니다.</p>
+            <button onClick={onClose} className="mt-5 rounded-2xl bg-slate-900 px-6 py-3 font-black text-white">닫기</button>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            <input className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" placeholder="성함" />
+            <input className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" placeholder="연락처" />
+            <select className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500">
+              <option>원룸 월세 문의</option>
+              <option>투룸 월세 문의</option>
+              <option>다가구 매매 문의</option>
+              <option>매물 의뢰</option>
+              <option>투자 상담</option>
+            </select>
+            <textarea className="min-h-28 rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500" placeholder="원하는 지역, 보증금/월세, 입주일, 문의 내용을 적어주세요." />
+            <button onClick={() => setSent(true)} className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 font-black text-white shadow-lg hover:bg-blue-700"><Send size={18} /> 접수하기</button>
+            <a href="tel:010-5323-3883" className="rounded-2xl bg-slate-100 py-4 text-center font-black text-slate-900 hover:bg-slate-200">전화가 빠르면 바로 상담하기</a>
+          </div>
+        )}
+      </motion.div>
+    </div>
   );
 }
 
-function RequestModal({ open, onClose }) {
-  const [form, setForm] = useState({ name: '', phone: '', message: '' });
-  if (!open) return null;
+function ListingDetail({ listing, onClose, onLead }) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/65 px-4 py-6 backdrop-blur-sm">
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 30 }} className="mx-auto max-w-6xl rounded-[2rem] bg-white shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-[2rem] border-b bg-white/90 px-5 py-4 backdrop-blur-xl">
+          <div>
+            <p className="text-xs font-black text-blue-600">실사진 중심 상세보기</p>
+            <h2 className="text-xl font-black text-slate-950 md:text-2xl">{listing.title}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-full bg-slate-100 p-2 hover:bg-slate-200"><X size={22} /></button>
+        </div>
+        <div className="p-5 md:p-7">
+          <div className="grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
+            <div className="overflow-hidden rounded-[2rem] bg-slate-100">
+              <img src={listing.photos[0]} alt={listing.title} className="h-[360px] w-full object-cover md:h-[500px]" />
+            </div>
+            <div className="rounded-[2rem] bg-slate-950 p-6 text-white">
+              <div className="mb-4 flex flex-wrap gap-2">{listing.tags.map((tag) => <InfoChip key={tag} tone="dark">#{tag}</InfoChip>)}</div>
+              <p className="text-sm font-bold text-blue-300">{listing.headline}</p>
+              <h3 className="mt-2 text-3xl font-black leading-tight">{listing.price}</h3>
+              <div className="mt-5 grid gap-3 text-sm">
+                <div className="rounded-2xl bg-white/10 p-4"><b>관리비</b><br />{listing.manageFee}</div>
+                <div className="rounded-2xl bg-white/10 p-4"><b>위치</b><br />{listing.location}</div>
+                <div className="rounded-2xl bg-white/10 p-4"><b>입주</b><br />{listing.status}</div>
+              </div>
+              <button onClick={() => onLead('consult', listing)} className="mt-5 w-full rounded-2xl bg-blue-600 py-4 font-black text-white hover:bg-blue-500">이 매물 상담신청</button>
+              <a href="tel:010-5323-3883" className="mt-3 block w-full rounded-2xl bg-white py-4 text-center font-black text-slate-950 hover:bg-slate-100">전화상담 010-5323-3883</a>
+            </div>
+          </div>
+          <div className="mt-6 rounded-[2rem] border border-slate-200 bg-slate-50 p-5">
+            <h3 className="flex items-center gap-2 text-lg font-black text-slate-950"><Sparkles className="text-blue-600" /> 핵심 요약</h3>
+            <p className="mt-3 leading-8 text-slate-700">{listing.summary}</p>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {listing.photos.map((photo, idx) => (
+              <div key={idx} className="overflow-hidden rounded-[1.5rem] bg-white shadow-sm ring-1 ring-slate-200">
+                <img src={photo} alt={`${listing.title} 사진 ${idx + 1}`} className="h-72 w-full object-cover" />
+                <div className="px-4 py-3 text-sm font-bold text-slate-700">{idx + 1}. {listing.area} {listing.type} 실사진</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_0.8fr]">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2 font-black text-slate-950"><MapPin size={20} className="text-blue-600" /> 지도 위치 영역</div>
+              <div className="grid h-72 place-items-center rounded-[1.5rem] bg-gradient-to-br from-slate-100 to-blue-50 text-center text-sm font-bold text-slate-500">
+                네이버지도 또는 카카오지도 연결 영역<br />매물 생활권 지도 + 칸공인중개사 위치 지도 구성 권장
+              </div>
+            </div>
+            <div className="grid gap-3">
+              <SectionToggle icon={Store} title="편의시설" items={listing.facilities} />
+              <SectionToggle icon={ShieldCheck} title="안전시설" items={listing.safety} />
+              <SectionToggle icon={School} title="교육시설" items={listing.education} />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function AdminLogin({ onLogin, onClose }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const submit = (e) => {
     e.preventDefault();
-    const text = `[홈페이지 매물의뢰]\n이름: ${form.name}\n연락처: ${form.phone}\n내용: ${form.message}`;
-    window.location.href = `sms:${OFFICE.tel}?body=${encodeURIComponent(text)}`;
-  };
-  return (
-    <div className="modal-bg"><div className="modal small"><div className="modal-head"><div><span>REQUEST</span><h2>매물의뢰하기</h2></div><button onClick={onClose}><X /></button></div><form onSubmit={submit} className="form-grid"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="성함" /><input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="연락처" /><textarea required value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="예: 인의동 원룸 월세 찾습니다 / 보증금 200, 월세 30 희망" rows={5} /><button className="btn btn-dark">문자로 의뢰 보내기</button></form></div></div>
-  );
-}
-
-function TextAreaList({ label, value, onChange, placeholder }) {
-  const text = Array.isArray(value) ? value.join('\n') : value || '';
-  return <label className="field wide"><span>{label}</span><textarea value={text} onChange={(e) => onChange(e.target.value.split('\n').map((v) => v.trim()).filter(Boolean))} placeholder={placeholder} rows={4} /></label>;
-}
-
-function PhotoManager({ form, setForm, adminPassword, propertyIdForUpload }) {
-  const [uploading, setUploading] = useState(false);
-  const fileInputRefs = useRef({});
-  const count = Math.max(1, Math.min(40, Number(form.image_count || 15)));
-  const photos = Array.isArray(form.photos) ? form.photos : [];
-  const memo = Array.isArray(form.photo_memo) ? form.photo_memo : [];
-
-  const updateCaption = (index, caption) => {
-    const nextMemo = [...memo];
-    nextMemo[index] = caption;
-    const nextPhotos = [...photos];
-    if (nextPhotos[index]) nextPhotos[index] = { ...nextPhotos[index], caption };
-    setForm({ ...form, photo_memo: nextMemo, photos: nextPhotos });
-  };
-
-  const removePhoto = (index) => {
-    const next = [...photos];
-    next[index] = undefined;
-    setForm({ ...form, photos: next.filter((item, itemIndex) => item || itemIndex < next.length) });
-  };
-
-  const uploadFile = async (index, file) => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const dataUrl = await resizeImageToDataUrl(file);
-      const result = await apiFetch('/api/upload-photo', {
-        method: 'POST',
-        adminPassword,
-        body: JSON.stringify({ dataUrl, mimeType: 'image/jpeg', propertyId: propertyIdForUpload || 'new', index }),
-      });
-      const caption = memo[index] || `${form.title || '매물'} 사진 ${index + 1}`;
-      const nextPhotos = [...photos];
-      nextPhotos[index] = { url: result.url, caption };
-      const nextMemo = [...memo];
-      nextMemo[index] = caption;
-      setForm({ ...form, photos: nextPhotos, photo_memo: nextMemo });
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      setUploading(false);
+    if (password === ADMIN_PASSWORD) {
+      setError('');
+      onLogin();
+    } else {
+      setError('비밀번호가 맞지 않습니다.');
     }
   };
-
   return (
-    <div className="photo-manager">
-      <div className="admin-subhead"><h3>사진 등록</h3><p>사진은 자동 압축 후 Supabase Storage에 저장됩니다.</p></div>
-      {uploading && <div className="notice">사진 업로드 중입니다.</div>}
-      <div className="photo-admin-grid">
-        {Array.from({ length: count }).map((_, index) => {
-          const photo = photos[index];
-          return (
-            <div className="photo-admin" key={index}>
-              <div className="photo-admin-frame" style={photo?.url ? { backgroundImage: `url(${photo.url})` } : undefined}>
-                {!photo?.url && <ImagePlus />}
-                <span>{index + 1}</span>
-              </div>
-              <input className="caption-input" value={memo[index] || photo?.caption || ''} onChange={(e) => updateCaption(index, e.target.value)} placeholder={`사진 ${index + 1} 설명`} />
-              <div className="photo-admin-actions">
-                <input ref={(el) => { fileInputRefs.current[index] = el; }} type="file" accept="image/*" hidden onChange={(e) => uploadFile(index, e.target.files?.[0])} />
-                <button type="button" onClick={() => fileInputRefs.current[index]?.click()}><Upload /> 업로드</button>
-                {photo?.url && <button type="button" onClick={() => removePhoto(index)}><Trash2 /> 제거</button>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 px-4 backdrop-blur-sm">
+      <motion.form onSubmit={submit} initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm rounded-[2rem] bg-white p-6 shadow-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <div><p className="text-xs font-black text-blue-600">KAN ADMIN</p><h2 className="text-xl font-black text-slate-950">관리자 잠금 해제</h2></div>
+          <button type="button" onClick={onClose} className="rounded-full bg-slate-100 p-2"><X size={20} /></button>
+        </div>
+        <label className="text-sm font-black text-slate-700">관리자 비밀번호</label>
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="비밀번호 입력" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-lg outline-none focus:border-blue-500" autoFocus />
+        {error && <p className="mt-2 text-sm font-bold text-red-500">{error}</p>}
+        <button className="mt-5 w-full rounded-2xl bg-slate-950 py-3 font-black text-white hover:bg-black">관리자 모드 열기</button>
+        <p className="mt-3 text-center text-xs text-slate-400">임시 비밀번호: {ADMIN_PASSWORD}</p>
+      </motion.form>
     </div>
   );
 }
 
-function AdminModal({ open, onClose, properties, setProperties, reload }) {
-  const [adminPassword, setAdminPassword] = useState(sessionStorage.getItem('kan-admin-password') || '');
-  const [loggedIn, setLoggedIn] = useState(Boolean(sessionStorage.getItem('kan-admin-password')));
-  const [loginPassword, setLoginPassword] = useState('');
-  const [form, setForm] = useState(EMPTY_FORM);
+function AdminPanel({ listings, onAdd, onDelete, onClose, storageMode }) {
+  const [form, setForm] = useState({
+    title: '', headline: '', price: '', deposit: '', monthly: '', manageFee: '관리비 포함', area: '인의동', location: '', summary: '', type: '원룸 월세', status: '즉시입주 협의', photoUrls: '', tags: '실사진\n직접확인\n상담가능', facilities: '주변 편의시설 확인', safety: '보안시설 확인', education: '교육시설 확인',
+  });
   const [saving, setSaving] = useState(false);
-  const [adminTab, setAdminTab] = useState('form');
-  const importRef = useRef(null);
 
-  useEffect(() => {
-    if (open && !form.title && !form.id) setForm({ ...EMPTY_FORM, sort_order: properties.length + 1 });
-  }, [open, properties.length]);
-
-  if (!open) return null;
-
-  const login = async (e) => {
-    e.preventDefault();
-    try {
-      await apiFetch('/api/admin-login', { method: 'POST', body: JSON.stringify({ password: loginPassword }) });
-      sessionStorage.setItem('kan-admin-password', loginPassword);
-      setAdminPassword(loginPassword);
-      setLoggedIn(true);
-      setLoginPassword('');
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  const logout = () => {
-    sessionStorage.removeItem('kan-admin-password');
-    setAdminPassword('');
-    setLoggedIn(false);
-  };
-
-  const editProperty = (property) => {
-    setForm(propertyToForm(property));
-    setAdminTab('form');
-    window.setTimeout(() => document.querySelector('.admin-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-  };
-
-  const newProperty = () => {
-    setForm({ ...EMPTY_FORM, sort_order: properties.length + 1 });
-    setAdminTab('form');
-  };
-
-  const saveProperty = async (e) => {
-    e.preventDefault();
+  const addListing = async () => {
+    if (!form.title || !form.price) return alert('매물 제목과 가격은 꼭 입력해주세요.');
     setSaving(true);
-    try {
-      const payload = formToPayload(form);
-      const method = form.id ? 'PUT' : 'POST';
-      const result = await apiFetch('/api/properties', {
-        method,
-        adminPassword,
-        body: JSON.stringify(form.id ? { id: form.id, property: payload } : { property: payload }),
-      });
-      if (form.id) setProperties(properties.map((p) => (p.id === form.id ? result.data : p)));
-      else setProperties([result.data, ...properties]);
-      setForm(propertyToForm(result.data));
-      alert('저장 완료했습니다.');
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteProperty = async (property) => {
-    if (!confirm(`${property.title} 매물을 삭제하시겠습니까?`)) return;
-    try {
-      await apiFetch(`/api/properties?id=${encodeURIComponent(property.id)}`, { method: 'DELETE', adminPassword });
-      setProperties(properties.filter((p) => p.id !== property.id));
-      if (form.id === property.id) newProperty();
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  const resetDefaults = async () => {
-    if (!confirm('기본 샘플 매물 3개로 초기화합니다. 현재 매물은 삭제됩니다. 진행할까요?')) return;
-    try {
-      const result = await apiFetch('/api/properties', { method: 'POST', adminPassword, body: JSON.stringify({ action: 'reset-defaults' }) });
-      setProperties(result.data || []);
-      newProperty();
-      alert('초기화 완료했습니다.');
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  const exportBackup = () => {
-    const blob = new Blob([JSON.stringify(properties, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kan-properties-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const importBackup = async (file) => {
-    if (!file) return;
-    if (!confirm('백업 파일의 매물로 전체 교체합니다. 진행할까요?')) return;
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      const result = await apiFetch('/api/properties', { method: 'POST', adminPassword, body: JSON.stringify({ action: 'import', properties: parsed }) });
-      setProperties(result.data || []);
-      alert('백업 불러오기 완료했습니다.');
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  const copyPublicUrl = async () => {
-    await navigator.clipboard.writeText(window.location.origin);
-    alert('홈페이지 주소를 복사했습니다.');
+    const item = {
+      id: `local-${Date.now()}`,
+      title: form.title,
+      headline: form.headline || form.price,
+      price: form.price,
+      deposit: Number(form.deposit || 0),
+      monthly: Number(form.monthly || 0),
+      manageFee: form.manageFee,
+      area: form.area,
+      location: form.location || '위치 상담 시 안내',
+      summary: form.summary || '상세 내용은 상담 시 안내드립니다.',
+      type: form.type,
+      status: form.status,
+      tags: parseLines(form.tags, ['실사진', '직접확인', '상담가능']),
+      photos: parseLines(form.photoUrls, ['https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?q=80&w=1200&auto=format&fit=crop']),
+      facilities: parseLines(form.facilities, ['주변 편의시설 확인']),
+      safety: parseLines(form.safety, ['보안시설 확인']),
+      education: parseLines(form.education, ['교육시설 확인']),
+      sortOrder: Date.now(),
+    };
+    await onAdd(item);
+    setSaving(false);
+    setForm({ title: '', headline: '', price: '', deposit: '', monthly: '', manageFee: '관리비 포함', area: '인의동', location: '', summary: '', type: '원룸 월세', status: '즉시입주 협의', photoUrls: '', tags: '실사진\n직접확인\n상담가능', facilities: '주변 편의시설 확인', safety: '보안시설 확인', education: '교육시설 확인' });
   };
 
   return (
-    <div className="modal-bg">
-      <div className="modal admin-modal">
-        <div className="modal-head"><div><span>ADMIN</span><h2>관리자 매물관리</h2><p>DB 저장 + 사진 업로드까지 연결된 운영용 관리자 화면입니다.</p></div><button onClick={onClose}><X /></button></div>
-
-        {!loggedIn ? (
-          <form onSubmit={login} className="login-box"><div className="login-icon"><Lock /></div><h3>관리자 비밀번호</h3><p>초기 비밀번호는 Vercel 환경변수 ADMIN_PASSWORD 값입니다. 기본값은 3883입니다.</p><input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="비밀번호 입력" /><button className="btn btn-dark">관리자 들어가기</button></form>
-        ) : (
-          <>
-            <div className="admin-toolbar"><button onClick={newProperty}><Plus /> 새 매물</button><button onClick={reload}><RefreshCw /> 새로고침</button><button onClick={copyPublicUrl}><Copy /> 주소복사</button><button onClick={exportBackup}><Download /> 백업 내보내기</button><button onClick={() => importRef.current?.click()}><Upload /> 백업 불러오기</button><button onClick={resetDefaults}><RefreshCw /> 기본값 초기화</button><button onClick={logout}><Lock /> 로그아웃</button><input ref={importRef} type="file" accept="application/json" hidden onChange={(e) => importBackup(e.target.files?.[0])} /></div>
-
-            <div className="admin-tabs"><button className={adminTab === 'form' ? 'active' : ''} onClick={() => setAdminTab('form')}>매물 등록/수정</button><button className={adminTab === 'list' ? 'active' : ''} onClick={() => setAdminTab('list')}>등록 매물 목록</button></div>
-
-            {adminTab === 'form' && (
-              <form onSubmit={saveProperty} className="admin-form">
-                <div className="admin-subhead"><h3>{form.id ? '매물 수정' : '새 매물 등록'}</h3><p>{form.id ? '기존 매물 내용을 수정하고 저장하세요.' : '매물 정보와 사진을 입력한 뒤 저장하세요.'}</p></div>
-                <div className="form-grid two">
-                  <label className="field"><span>노출순서</span><input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></label>
-                  <label className="field"><span>뱃지</span><input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="추천 원룸" /></label>
-                  <label className="field wide"><span>매물명</span><input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="구미 인의동 원룸 월세" /></label>
-                  <label className="field"><span>짧은 제목</span><input value={form.short_title} onChange={(e) => setForm({ ...form, short_title: e.target.value })} placeholder="인의동 원룸 100/18" /></label>
-                  <label className="field"><span>소재지</span><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="경상북도 구미시 인의동" /></label>
-                  <label className="field wide"><span>생활권/랜드마크</span><input value={form.landmark} onChange={(e) => setForm({ ...form, landmark: e.target.value })} placeholder="미래로병원 뒤 / 국가산단 출퇴근 동선" /></label>
-                  <label className="field"><span>매물종류</span><select value={form.property_type} onChange={(e) => setForm({ ...form, property_type: e.target.value })}><option>다가구주택 내 원룸</option><option>다가구주택 내 투룸</option><option>미니투룸</option><option>상가</option><option>수익형부동산</option></select></label>
-                  <label className="field"><span>거래형태</span><select value={form.deal_type} onChange={(e) => setForm({ ...form, deal_type: e.target.value })}><option>월세</option><option>전세</option><option>매매</option><option>반전세</option></select></label>
-                  <label className="field"><span>보증금</span><input value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} placeholder="100만원" /></label>
-                  <label className="field"><span>월세/가격</span><input value={form.rent} onChange={(e) => setForm({ ...form, rent: e.target.value })} placeholder="18만원" /></label>
-                  <label className="field"><span>관리비</span><input value={form.management} onChange={(e) => setForm({ ...form, management: e.target.value })} /></label>
-                  <label className="field"><span>면적</span><input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} /></label>
-                  <label className="field"><span>층수</span><input value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} /></label>
-                  <label className="field"><span>방향</span><input value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })} /></label>
-                  <label className="field"><span>주차</span><input value={form.parking} onChange={(e) => setForm({ ...form, parking: e.target.value })} /></label>
-                  <label className="field"><span>입주가능일</span><input value={form.move_in} onChange={(e) => setForm({ ...form, move_in: e.target.value })} /></label>
-                  <label className="field"><span>사용승인일</span><input value={form.approval_date} onChange={(e) => setForm({ ...form, approval_date: e.target.value })} /></label>
-                  <label className="field"><span>방/욕실</span><input value={form.rooms} onChange={(e) => setForm({ ...form, rooms: e.target.value })} /></label>
-                  <label className="field"><span>사진 수</span><input type="number" min="1" max="40" value={form.image_count} onChange={(e) => setForm({ ...form, image_count: e.target.value })} /></label>
-                  <label className="field wide"><span>옵션</span><input value={form.options} onChange={(e) => setForm({ ...form, options: e.target.value })} /></label>
-                  <label className="field wide"><span>요약문구</span><textarea required value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} rows={3} /></label>
-                  <label className="field wide"><span>상세설명</span><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} /></label>
-                  <TextAreaList label="편의시설" value={form.facilities} onChange={(v) => setForm({ ...form, facilities: v })} placeholder="한 줄에 하나씩 입력" />
-                  <TextAreaList label="안전/신뢰정보" value={form.safety} onChange={(v) => setForm({ ...form, safety: v })} placeholder="한 줄에 하나씩 입력" />
-                  <TextAreaList label="교육/생활수요" value={form.education} onChange={(v) => setForm({ ...form, education: v })} placeholder="한 줄에 하나씩 입력" />
+    <div className="fixed inset-0 z-[65] overflow-y-auto bg-slate-950/85 px-4 py-6 backdrop-blur-sm">
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-7xl rounded-[2rem] bg-white shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-[2rem] border-b bg-white/90 px-5 py-4 backdrop-blur-xl">
+          <div><p className="text-xs font-black text-blue-600">대표님 전용 · {storageMode}</p><h2 className="text-xl font-black text-slate-950">관리자 매물관리</h2></div>
+          <button onClick={onClose} className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-black hover:bg-slate-200"><LogOut size={18} /> 나가기</button>
+        </div>
+        <div className="grid gap-6 p-5 lg:grid-cols-[430px_1fr]">
+          <div className="rounded-[2rem] border border-slate-200 bg-slate-50 p-5">
+            <div className="mb-4 flex items-center gap-2 font-black text-slate-950"><Plus size={20} className="text-blue-600" /> 매물 등록</div>
+            <div className="grid gap-3">
+              <input className="rounded-2xl border px-4 py-3" placeholder="매물 제목" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <input className="rounded-2xl border px-4 py-3" placeholder="한 줄 문구 예: 200/30 관리비포함" value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} />
+              <input className="rounded-2xl border px-4 py-3" placeholder="가격 예: 보증금 200만원 / 월세 30만원" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+              <div className="grid grid-cols-2 gap-3"><input className="rounded-2xl border px-4 py-3" placeholder="보증금 숫자" value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} /><input className="rounded-2xl border px-4 py-3" placeholder="월세 숫자" value={form.monthly} onChange={(e) => setForm({ ...form, monthly: e.target.value })} /></div>
+              <input className="rounded-2xl border px-4 py-3" placeholder="관리비" value={form.manageFee} onChange={(e) => setForm({ ...form, manageFee: e.target.value })} />
+              <div className="grid grid-cols-2 gap-3"><select className="rounded-2xl border px-4 py-3" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })}>{AREAS.filter(a => a !== '전체').map(a => <option key={a}>{a}</option>)}</select><select className="rounded-2xl border px-4 py-3" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{TYPES.filter(t => t !== '전체').map(t => <option key={t}>{t}</option>)}</select></div>
+              <input className="rounded-2xl border px-4 py-3" placeholder="위치" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+              <input className="rounded-2xl border px-4 py-3" placeholder="입주 상태" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} />
+              <textarea className="min-h-24 rounded-2xl border px-4 py-3" placeholder="핵심 설명" value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} />
+              <textarea className="min-h-24 rounded-2xl border px-4 py-3" placeholder="사진 URL 여러 개. 한 줄에 하나씩" value={form.photoUrls} onChange={(e) => setForm({ ...form, photoUrls: e.target.value })} />
+              <textarea className="min-h-20 rounded-2xl border px-4 py-3" placeholder="태그. 한 줄에 하나씩" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+              <button disabled={saving} onClick={addListing} className="rounded-2xl bg-blue-600 py-3 font-black text-white hover:bg-blue-700 disabled:opacity-60">{saving ? '등록 중...' : '매물 등록하기'}</button>
+            </div>
+          </div>
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-5">
+            <div className="mb-4 flex items-center justify-between"><div className="font-black text-slate-950">등록 매물 목록</div><div className="text-xs font-bold text-slate-500">총 {listings.length}개</div></div>
+            <div className="grid gap-3">
+              {listings.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 rounded-3xl border border-slate-200 p-3">
+                  <img src={item.photos[0]} alt={item.title} className="h-20 w-24 rounded-2xl object-cover" />
+                  <div className="min-w-0 flex-1"><p className="truncate font-black text-slate-950">{item.title}</p><p className="text-sm font-bold text-blue-600">{item.price}</p><p className="truncate text-xs text-slate-500">{item.summary}</p></div>
+                  <button onClick={() => onDelete(item.id)} className="rounded-2xl bg-red-50 p-3 text-red-600 hover:bg-red-100"><Trash2 size={18} /></button>
                 </div>
-                <PhotoManager form={form} setForm={setForm} adminPassword={adminPassword} propertyIdForUpload={form.id || form.title || 'new'} />
-                <button disabled={saving} className="btn btn-yellow save-btn"><Save /> {saving ? '저장 중' : '매물 저장'}</button>
-              </form>
-            )}
-
-            {adminTab === 'list' && (
-              <div className="admin-list">
-                {properties.map((p) => <div key={p.id} className="admin-list-item"><div><strong>{p.title}</strong><span>{p.deposit} / {p.rent} · 사진 {p.photos?.length || 0}장 · 순서 {p.sort_order}</span></div><div><button onClick={() => editProperty(p)}><Edit3 /> 수정</button><button onClick={() => deleteProperty(p)}><Trash2 /> 삭제</button></div></div>)}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }
 
-function Footer({ onOpenAdmin }) {
+function ListingCard({ listing, onClick }) {
   return (
-    <footer className="footer">
-      <div className="footer-grid">
-        <div><h2>{OFFICE.name}</h2><p>구미 원룸 월세, 투룸 월세, 수익형부동산 투자 매물 상담은 칸공인중개사사무소로 문의하세요.</p><div><a href={`tel:${OFFICE.tel}`}>전화 {OFFICE.phone}</a><a href={OFFICE.blog} target="_blank" rel="noreferrer">블로그 보기</a><a href={OFFICE.mapSearch} target="_blank" rel="noreferrer">지도 보기</a></div></div>
-        <div className="office-box"><strong>중개사무소 표시</strong><span>상호명: {OFFICE.name}</span><span>소재지: {OFFICE.address}</span><span>대표공인중개사: {OFFICE.owner}</span><span>등록번호: {OFFICE.regNo}</span><span>연락처: {OFFICE.phone} / {OFFICE.subPhone}</span></div>
+    <motion.button whileHover={{ y: -5 }} onClick={onClick} className="group overflow-hidden rounded-[2rem] bg-white text-left shadow-sm ring-1 ring-slate-200 transition hover:shadow-2xl">
+      <div className="relative overflow-hidden">
+        <img src={listing.photos[0]} alt={listing.title} className="h-64 w-full object-cover transition duration-500 group-hover:scale-105" />
+        <div className="absolute left-3 top-3 rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white">{listing.type}</div>
+        <div className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-900 backdrop-blur">{listing.area}</div>
+        <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white backdrop-blur"><Camera size={14} /> 사진 {listing.photos.length}장</div>
       </div>
-      <button className="admin-floating" onClick={onOpenAdmin}><Lock /> 관리자</button>
-    </footer>
+      <div className="p-5">
+        <p className="text-sm font-black text-blue-600">{listing.headline}</p>
+        <h3 className="mt-1 text-xl font-black text-slate-950">{listing.title}</h3>
+        <p className="mt-2 font-black text-slate-800">{listing.price}</p>
+        <p className="mt-1 text-sm font-bold text-slate-500">{listing.manageFee} · {listing.status}</p>
+        <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">{listing.summary}</p>
+        <div className="mt-4 flex flex-wrap gap-2">{listing.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">#{tag}</span>)}</div>
+        <div className="mt-5 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">상세보기 <ArrowRight size={17} className="transition group-hover:translate-x-1" /></div>
+      </div>
+    </motion.button>
   );
 }
 
 export default function App() {
-  const [properties, setProperties] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [requestOpen, setRequestOpen] = useState(false);
+  const [listings, setListings] = useState(sampleListings);
+  const [selectedListing, setSelectedListing] = useState(null);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('전체');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [areaFilter, setAreaFilter] = useState('전체');
+  const [typeFilter, setTypeFilter] = useState('전체');
+  const [keyword, setKeyword] = useState('');
+  const [lead, setLead] = useState(null);
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const loadProperties = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const result = await apiFetch('/api/properties');
-      setProperties(result.data || []);
-      if (selected) {
-        const fresh = (result.data || []).find((p) => p.id === selected.id);
-        if (fresh) setSelected(fresh);
+  const storageMode = hasSupabaseConfig ? 'Supabase DB 저장' : '브라우저 임시 저장';
+
+  useEffect(() => {
+    async function loadListings() {
+      setLoading(true);
+      if (hasSupabaseConfig) {
+        const { data, error } = await supabase.from('listings').select('*').order('created_at', { ascending: false });
+        if (!error && data && data.length > 0) setListings(data.map(fromDbListing));
+        if (error) console.error(error);
+      } else {
+        const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (saved) setListings(JSON.parse(saved));
       }
-    } catch (err) {
-      setError(err.message);
-    } finally {
       setLoading(false);
     }
+    loadListings();
+  }, []);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig && !loading) localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(listings));
+  }, [listings, loading]);
+
+  const addListing = async (item) => {
+    if (hasSupabaseConfig) {
+      const { data, error } = await supabase.from('listings').insert(toDbListing(item)).select('*').single();
+      if (error) return alert(`등록 실패: ${error.message}`);
+      setListings((prev) => [fromDbListing(data), ...prev]);
+      return;
+    }
+    setListings((prev) => [item, ...prev]);
   };
 
-  useEffect(() => { loadProperties(); }, []);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return properties.filter((p) => {
-      const text = `${p.title} ${p.short_title} ${p.location} ${p.landmark} ${p.property_type} ${p.deal_type} ${p.deposit} ${p.rent}`.toLowerCase();
-      const matchQuery = q ? text.includes(q) : true;
-      const matchCategory = category === '전체' ? true : text.includes(category.toLowerCase());
-      return matchQuery && matchCategory;
-    });
-  }, [properties, query, category]);
-
-  const goHome = () => {
-    setSelected(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const deleteListing = async (id) => {
+    if (!confirm('이 매물을 삭제할까요?')) return;
+    if (hasSupabaseConfig && !String(id).startsWith('sample-') && !String(id).startsWith('local-')) {
+      const { error } = await supabase.from('listings').delete().eq('id', id);
+      if (error) return alert(`삭제 실패: ${error.message}`);
+    }
+    setListings((prev) => prev.filter((item) => item.id !== id));
   };
+
+  const filteredListings = useMemo(() => listings.filter((item) => {
+    const matchArea = areaFilter === '전체' || item.area === areaFilter;
+    const matchType = typeFilter === '전체' || item.type === typeFilter;
+    const target = `${item.title} ${item.area} ${item.type} ${item.summary} ${item.price} ${(item.tags || []).join(' ')}`.toLowerCase();
+    const matchKeyword = !keyword || target.includes(keyword.toLowerCase());
+    return matchArea && matchType && matchKeyword;
+  }), [listings, areaFilter, typeFilter, keyword]);
+
+  const onLead = (mode, listing = null) => setLead({ mode, listing });
 
   return (
-    <div className="app">
-      <Header onGoHome={goHome} onOpenRequest={() => setRequestOpen(true)} onOpenAdmin={() => setAdminOpen(true)} />
-      {selected ? <PropertyDetail property={selected} onBack={goHome} onOpenRequest={() => setRequestOpen(true)} /> : <><Hero onOpenRequest={() => setRequestOpen(true)} /><SearchBar query={query} setQuery={setQuery} category={category} setCategory={setCategory} /><PropertyList properties={filtered} onSelect={setSelected} loading={loading} error={error} /></>}
-      <Footer onOpenAdmin={() => setAdminOpen(true)} />
-      <RequestModal open={requestOpen} onClose={() => setRequestOpen(false)} />
-      <AdminModal open={adminOpen} onClose={() => setAdminOpen(false)} properties={properties} setProperties={setProperties} reload={loadProperties} />
+    <div className="min-h-screen bg-[#f6f7fb] text-slate-950">
+      <header className="sticky top-0 z-40 border-b border-white/40 bg-white/75 backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
+          <div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-950 text-lg font-black text-white">K</div><div><p className="text-base font-black leading-4">칸공인중개사</p><p className="text-xs font-bold text-slate-500">구미 원룸·투룸·다가구매매</p></div></div>
+          <nav className="hidden items-center gap-2 md:flex"><a href="#listings" className="rounded-full px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-100">매물보기</a><a href="#invest" className="rounded-full px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-100">투자상담</a><a href="#trust" className="rounded-full px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-100">중개사정보</a><button onClick={() => onLead('request')} className="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white hover:bg-black">매물의뢰</button></nav>
+          <button className="rounded-2xl bg-slate-100 p-3 md:hidden" onClick={() => setMobileMenu(!mobileMenu)}><Menu size={20} /></button>
+        </div>
+        <AnimatePresence>{mobileMenu && <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden border-t bg-white md:hidden"><div className="grid gap-2 px-5 py-4"><a href="#listings" className="rounded-2xl bg-slate-50 px-4 py-3 font-black">매물보기</a><a href="#invest" className="rounded-2xl bg-slate-50 px-4 py-3 font-black">투자상담</a><button onClick={() => onLead('request')} className="rounded-2xl bg-slate-950 px-4 py-3 font-black text-white">매물의뢰</button></div></motion.div>}</AnimatePresence>
+      </header>
+
+      <section className="relative overflow-hidden bg-slate-950 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,#2563eb_0,transparent_38%),radial-gradient(circle_at_bottom_right,#0f172a_0,transparent_42%)]" />
+        <img src="https://images.unsplash.com/photo-1494526585095-c41746248156?q=80&w=1800&auto=format&fit=crop" alt="칸공인중개사 배경" className="absolute inset-0 h-full w-full object-cover opacity-20" />
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-5 py-12 md:py-20 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <div className="mb-5 flex flex-wrap gap-2"><InfoChip tone="dark">구미 원룸 월세</InfoChip><InfoChip tone="dark">구미 다가구매매</InfoChip><InfoChip tone="dark">수익형 부동산 투자</InfoChip></div>
+            <h1 className="text-4xl font-black leading-tight tracking-tight md:text-6xl">구미 방 찾기,<br />사진 보고 바로 상담하세요</h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">원룸·미니투룸·투룸 월세부터 다가구 매매까지, 실사진·가격·생활권을 먼저 보여드리고 빠르게 상담 연결합니다.</p>
+            <div className="mt-8 grid gap-3 sm:flex"><a href="tel:010-5323-3883" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-4 font-black text-white shadow-2xl shadow-blue-950/30 hover:bg-blue-500"><Phone size={20} /> 전화상담</a><button onClick={() => onLead('request')} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 font-black text-slate-950 shadow-2xl hover:bg-slate-100"><Home size={20} /> 매물의뢰하기</button></div>
+          </div>
+          <div className="rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-2xl">
+            <div className="rounded-[1.5rem] bg-white p-4 text-slate-950"><div className="flex items-center justify-between"><div><p className="text-xs font-black text-blue-600">빠른 매물 찾기</p><h2 className="text-2xl font-black">조건만 고르면 바로 검색</h2></div><SlidersHorizontal className="text-blue-600" /></div><div className="mt-4 grid gap-3"><div className="flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-3"><Search size={18} className="text-slate-400" /><input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="예: 인의동 원룸, 관리비포함, 30만원대" className="w-full bg-transparent text-sm font-semibold outline-none" /></div><div className="grid grid-cols-2 gap-3"><select value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black outline-none">{AREAS.map((a) => <option key={a}>{a}</option>)}</select><select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black outline-none">{TYPES.map((t) => <option key={t}>{t}</option>)}</select></div><a href="#listings" className="rounded-2xl bg-slate-950 py-4 text-center font-black text-white hover:bg-black">매물 {filteredListings.length}개 보기</a></div></div>
+            <div className="mt-4 grid grid-cols-3 gap-3 text-center text-white"><div className="rounded-3xl bg-white/10 p-4"><p className="text-2xl font-black">실사진</p><p className="text-xs font-bold text-slate-300">중심 안내</p></div><div className="rounded-3xl bg-white/10 p-4"><p className="text-2xl font-black">빠른</p><p className="text-xs font-bold text-slate-300">전화 연결</p></div><div className="rounded-3xl bg-white/10 p-4"><p className="text-2xl font-black">구미</p><p className="text-xs font-bold text-slate-300">지역 전문</p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <main className="mx-auto max-w-7xl px-5 py-10">
+        <section className="grid gap-4 md:grid-cols-4"><div className="rounded-[2rem] bg-white p-5 shadow-sm ring-1 ring-slate-200 md:col-span-2"><div className="flex items-center gap-3"><div className="rounded-2xl bg-blue-50 p-3 text-blue-600"><Building2 /></div><div><p className="text-2xl font-black">구미 생활권별 매물</p><p className="text-sm font-bold text-slate-500">인의동·진평동·구평동·옥계동 중심</p></div></div></div><div className="rounded-[2rem] bg-slate-950 p-5 text-white shadow-sm"><Camera className="text-blue-300" /><p className="mt-3 text-xl font-black">실사진 우선</p><p className="text-sm text-slate-300">사진 보고 문의 결정</p></div><div className="rounded-[2rem] bg-blue-600 p-5 text-white shadow-sm"><Clock3 /><p className="mt-3 text-xl font-black">빠른 상담</p><p className="text-sm text-blue-100">전화·문자 바로 연결</p></div></section>
+
+        <section id="listings" className="mt-12"><div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="text-sm font-black text-blue-600">추천 매물 {filteredListings.length}개</p><h2 className="text-3xl font-black text-slate-950 md:text-4xl">오늘 볼 수 있는 매물</h2></div><div className="flex flex-wrap gap-2">{AREAS.map((area) => <button key={area} onClick={() => setAreaFilter(area)} className={cn('rounded-full px-4 py-2 text-sm font-black', areaFilter === area ? 'bg-slate-950 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200')}>{area}</button>)}</div></div><div className="mb-6 flex flex-wrap gap-2">{TYPES.map((type) => <button key={type} onClick={() => setTypeFilter(type)} className={cn('rounded-full px-4 py-2 text-sm font-black', typeFilter === type ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200')}>{type}</button>)}</div>{filteredListings.length === 0 ? <div className="rounded-[2rem] bg-white p-10 text-center shadow-sm ring-1 ring-slate-200"><p className="text-xl font-black">조건에 맞는 매물이 없습니다</p><p className="mt-2 text-sm font-semibold text-slate-500">검색어를 줄이거나 전체 지역으로 다시 확인해보세요.</p></div> : <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">{filteredListings.map((listing) => <ListingCard key={listing.id} listing={listing} onClick={() => setSelectedListing(listing)} />)}</div>}</section>
+
+        <section id="invest" className="mt-14 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]"><div className="rounded-[2rem] bg-slate-950 p-7 text-white shadow-xl"><p className="text-sm font-black text-blue-300">투자자 상담</p><h2 className="mt-2 text-3xl font-black leading-tight">구미 다가구매매는 수익 구조부터 봅니다</h2><p className="mt-4 leading-8 text-slate-300">매매가만 보는 것이 아니라 월세수익, 보증금, 공실률, 수리상태, 주차, 임대수요까지 함께 검토합니다.</p><button onClick={() => onLead('consult')} className="mt-6 rounded-2xl bg-blue-600 px-6 py-4 font-black text-white hover:bg-blue-500">투자매물 상담신청</button></div><div className="grid gap-4 md:grid-cols-3"><div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200"><Wallet className="text-blue-600" /><p className="mt-4 text-xl font-black">월세수익</p><p className="mt-2 text-sm leading-6 text-slate-500">보증금·월세·실수익 구조 확인</p></div><div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200"><Building2 className="text-blue-600" /><p className="mt-4 text-xl font-black">임대수요</p><p className="mt-2 text-sm leading-6 text-slate-500">공단·대학·생활권 수요 분석</p></div><div className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-slate-200"><ShieldCheck className="text-blue-600" /><p className="mt-4 text-xl font-black">리스크</p><p className="mt-2 text-sm leading-6 text-slate-500">수리·공실·권리관계 체크</p></div></div></section>
+
+        <section id="trust" className="mt-14 rounded-[2rem] bg-white p-7 shadow-sm ring-1 ring-slate-200"><div className="grid gap-6 md:grid-cols-[1fr_1.2fr] md:items-center"><div><p className="text-sm font-black text-blue-600">중개대상물 표시·광고 신뢰정보</p><h2 className="mt-2 text-3xl font-black">칸공인중개사사무소</h2><p className="mt-4 leading-8 text-slate-600">실사진, 직접 확인 매물, 법적 표시사항을 기준으로 구미 지역 원룸·투룸·다가구 매매 상담을 진행합니다.</p></div><div className="grid gap-3 text-sm font-bold text-slate-700 md:grid-cols-2"><div className="rounded-2xl bg-slate-50 p-4">상호명<br /><b className="text-slate-950">칸공인중개사사무소</b></div><div className="rounded-2xl bg-slate-50 p-4">대표공인중개사<br /><b className="text-slate-950">정점식</b></div><div className="rounded-2xl bg-slate-50 p-4">주소<br /><b className="text-slate-950">경상북도 구미시 인의동 991-4번지 4층</b></div><div className="rounded-2xl bg-slate-50 p-4">등록번호<br /><b className="text-slate-950">제47190-2023-00014</b></div><div className="rounded-2xl bg-slate-50 p-4 md:col-span-2">연락처<br /><b className="text-slate-950">010-5323-3883 / 054-474-0367</b></div></div></div></section>
+      </main>
+
+      <footer className="border-t bg-white px-5 py-10 text-center text-sm text-slate-500"><p className="font-black text-slate-900">칸공인중개사사무소</p><p className="mt-1">경상북도 구미시 인의동 991-4번지 4층 · 대표공인중개사 정점식</p><p>등록번호 제47190-2023-00014 · 010-5323-3883 / 054-474-0367</p></footer>
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white/90 p-3 backdrop-blur-xl md:hidden"><div className="mx-auto grid max-w-md grid-cols-2 gap-2"><a href="tel:010-5323-3883" className="rounded-2xl bg-blue-600 py-3 text-center text-sm font-black text-white">전화상담</a><button onClick={() => onLead('request')} className="rounded-2xl bg-slate-950 py-3 text-sm font-black text-white">매물의뢰</button></div></div>
+      <button onClick={() => setShowAdminLogin(true)} className="fixed bottom-20 right-5 z-40 flex items-center gap-2 rounded-full bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-2xl hover:bg-black md:bottom-5"><Lock size={17} /> 관리자</button>
+      <AnimatePresence>{selectedListing && <ListingDetail listing={selectedListing} onClose={() => setSelectedListing(null)} onLead={onLead} />}</AnimatePresence>
+      <AnimatePresence>{showAdminLogin && <AdminLogin onClose={() => setShowAdminLogin(false)} onLogin={() => { setShowAdminLogin(false); setAdminOpen(true); }} />}</AnimatePresence>
+      <AnimatePresence>{adminOpen && <AdminPanel listings={listings} onAdd={addListing} onDelete={deleteListing} onClose={() => setAdminOpen(false)} storageMode={storageMode} />}</AnimatePresence>
+      <AnimatePresence>{lead && <LeadModal mode={lead.mode} listing={lead.listing} onClose={() => setLead(null)} />}</AnimatePresence>
+      <div className="fixed left-4 bottom-20 z-20 hidden rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-slate-500 shadow-lg ring-1 ring-slate-200 md:block">저장 방식: {storageMode}</div>
     </div>
   );
 }
